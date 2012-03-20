@@ -24,6 +24,13 @@ import sys, re
 import random
 from settings import *
 
+
+#do not add too many records per visit of the page, 500 records consume ~30% quota of Datastore Write Operations on my GAE
+#In addition, weibo API also has the limit on the number of APIs to be called per hour
+WRITEPERVISIT = 500 
+
+
+
 class Users(db.Model):
     """Data Model"""
     id = db.IntegerProperty(default=0)
@@ -96,7 +103,6 @@ def GetFriends(uid, cursor):
 def GetFollowers(uid, cursor):
     """TODO Get the followers of an user as specified"""
     return True
-    
 
 
 def Chooseuid():
@@ -152,14 +158,29 @@ class MainHandler(webapp.RequestHandler):
                 break
             cursor = res[u'next_cursor']
         self.response.out.write('<blockquote>users added:%d</blockquote>' % cnt)
-        
+    
+    
+class NotFoundHandler(webapp.RequestHandler):
+  def get(self):    
+    self.response.out.write("""
+    <table border="0" cellspacing="0" cellpadding="0" width="100%" class="hit-layout">
+    <tr>
+    <td id="hit-a">
+        <div class="hit-content">
+        <h3>The Page You Requested Is Not Found</h3>
+        </div>
+    </td>
+    </tr>
+    </table>
+    """)
 
-		
+
 def main():
     application = webapp.WSGIApplication([('/', MainHandler),
 										  ('/count', CountHandler),
                                           ('/reset', ResetHandler),
-                                          ('/randomuser', QueryHandler)],
+                                          ('/randomuser', QueryHandler),
+                                          ('/.*', NotFoundHandler)],
                                          debug=False)
     util.run_wsgi_app(application)
 

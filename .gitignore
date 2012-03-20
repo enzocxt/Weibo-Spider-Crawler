@@ -1,0 +1,8 @@
+# Credential Files#
+###################
+settings.*
+
+
+# Compiled source #
+###################
+*.pyc
