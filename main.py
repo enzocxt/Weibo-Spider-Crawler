@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # Created by Raullen Chai
 # v1	proof-of-concept version	2012/3/20
-# Licensed under the GPL License
+# Released under the GPL License
 #
 
 from datetime import datetime, date, time
