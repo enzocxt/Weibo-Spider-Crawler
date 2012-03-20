@@ -2,8 +2,10 @@ A spider/crawler for weibo.com, which extracts/stores the users' records for fur
 
 This program is to be deployed on GAE(Google App Engine) v1.6.
 
-A live demo of this project can be found: 
-	http://weibospider.appspot.com. 
+A live demo of this project can be found here.
+
+    http://weibospider.appspot.com
+
 However, due to the limited quota provided by GAE, it is not guaranteed that it will keep alive at any time for any one.
 
 This project is released under GPL license
