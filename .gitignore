@@ -6,3 +6,9 @@ settings.*
 # Compiled source #
 ###################
 *.pyc
+*.o
+*.com
+*.class
+*.dll
+*.exe
+*.so
