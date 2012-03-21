@@ -3,6 +3,11 @@
 settings.*
 
 
+# Deployment      #
+###################
+deploy.bat
+
+
 # Compiled source #
 ###################
 *.pyc

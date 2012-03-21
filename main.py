@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Created by Raullen Chai
-# v1	proof-of-concept version	2012/3/20
 # Released under the GPL License
-#
+
 
 from datetime import datetime, date, time
-from google.appengine.ext import db
+from google.appengine.api import rdbms
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp import util
 import urllib2, base64
@@ -15,74 +14,127 @@ import sys, re
 import random
 from settings import *
 
-
 #do not add too many records per visit of the page, 500 records consume ~30% quota of Datastore Write Operations on my GAE
-#In addition, weibo API also has the limit on the number of APIs to be called per hour
-WRITEPERVISIT = 500 
+WRITEPERVISIT = 1000
 
 
 
-class Users(db.Model):
-    """Data Model"""
-    id = db.IntegerProperty(default=0)
-    screen_name = db.StringProperty(default='NULL')
-    name = db.StringProperty(default='NULL')
-    province = db.IntegerProperty(default=0)
-    city = db.IntegerProperty(default=0)
-    location = db.StringProperty(default='NULL')
-    gender = db.StringProperty(default='NULL')
-    url = db.StringProperty(default='NULL')
-    statuses_count = db.IntegerProperty(default=0)
-    followers_count = db.IntegerProperty(default=0)
-    friends_count = db.IntegerProperty(default=0)
-    created_at = db.DateTimeProperty(auto_now_add=True)
-    selected = db.IntegerProperty(default=0)
-    visited = db.IntegerProperty(default=0)                     #used by the crawler to mark the users visited: 0 unvisited 1 visited
 
 
+##############################################################################################################
+#Google Cloud SQL Configuration
+"""
+#1. In Google API Console -> Google Cloud SQL, create an instance.
+#2. Add your appname into the instance
+#3. Within that instance, create database/table as below.
+CREATE DATABASE weibo_info;
+CREATE TABLE users (id INT NOT NULL, screen_name VARCHAR(255), name VARCHAR(255), province INT, city INT, location VARCHAR(255), gender  VARCHAR(8), url VARCHAR(255), statuses_count INT, followers_count INT, friends_count INT, created_at DATE, visited INT, visited_at DATE, reserved0 INT, reserved1 VARCHAR(255), reserved2 VARCHAR(255), PRIMARY KEY(id));
+"""
+
+_INSTANCE_NAME = 'weibousers:weibousers10g'
+_DATABASE_NAME = 'weibo_info'
+_TABLE_NAME = 'users'
+
+
+
+
+
+
+
+
+##############################################################################################################
+#Sina Weibo API Configuration is defined in settings.py like below
+"""
+USERNAME = list(['user1','user2','user3','user4'])
+PASSWORD = list(['password1','password2','password3','password4'])
+APP_KEY = list(['appkey1','appkey2','appkey3','appkey4'])
+"""
+
+
+
+
+
+
+
+
+##############################################################################################################
+"""Choose random users to display"""
 class QueryHandler(webapp.RequestHandler):	
-    """Get random users"""
+
     def get(self):
-        users = Users.all()
+        conn = rdbms.connect(instance=_INSTANCE_NAME, database=_DATABASE_NAME)
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM ' + _TABLE_NAME)
         cnt = 0
         self.response.out.write('<blockquote>')
-        for user in users:
+        for row in cursor.fetchall():
             if cnt>20:
                 break
-            if random.randint(0,1000) <= 100:  #one record has a certain prob. to be selected
-                self.response.out.write('@%s, ' % user.screen_name)
-                #print isinstance(user.screen_name, unicode) #user.screen_name is unicode encoded
+            if random.randint(0,1000) <= 1:  #one record has a certain prob. to be selected
+                self.response.out.write('@%s, ' % row[1])
                 cnt += 1
-            
+
         self.response.out.write('</blockquote>')
-        
+        self.response.out.write('<blockquote>%d users produced</blockquote>' % cnt)
+        conn.close()
+		
+		
+		
+		
+		
+		
+		
+##############################################################################################################
+"""Retrieve the number of entries in DB"""
+class StatusHandler(webapp.RequestHandler):
 
-class CountHandler(webapp.RequestHandler):
-    """Retrieve the number of entries in DB"""
     def get(self):
-        users = Users.all()
-        cnt = 0
-        for user in users:
-            cnt += 1
-        self.response.out.write('<blockquote>%d users are stored</blockquote>' % cnt)
+        conn = rdbms.connect(instance=_INSTANCE_NAME, database=_DATABASE_NAME)
+		#total number of users
+        cursor = conn.cursor()
+        cursor.execute('SELECT count(*) FROM ' + _TABLE_NAME)
+        total_cnt = 0
+        for row in cursor.fetchall():
+			total_cnt = row
+			self.response.out.write('<blockquote>%d users are stored</blockquote>' % total_cnt)
+			
+		#number of female/male users
+        cursor = conn.cursor()
+        cursor.execute('SELECT count(*) FROM ' + _TABLE_NAME + ' WHERE gender="f"')
+        female_cnt = 0
+        for row in cursor.fetchall():
+			female_cnt = row
+			self.response.out.write('<blockquote>%d  users are female</blockquote>' % female_cnt)
+        conn.close()
 
+		
+		
+##############################################################################################################
+"""TODO: Check if the API reaches their limits"""
+class APIStatusHandler(webapp.RequestHandler):
 
-class ResetHandler(webapp.RequestHandler):
-    """Reset the Database by deleting all entries"""
     def get(self):
-        users = Users.all()
-        cnt = 0
-        for user in users:
-            user.delete()
-            cnt += 1
-        self.response.out.write('<blockquote>%d users has been deleted</blockquote>' % cnt)
+		return True
 
 
+##############################################################################################################
+"""TODO: Update the user info stored in the database reguarly"""
 
-def GetFriends(uid, cursor):
-    """Get the friends of an user as specified"""
-    req = urllib2.Request(WEIBO_URL+"&uid="+str(uid)+"&cursor="+str(cursor))
-    sec = base64.encodestring('%s:%s' % (USERNAME, PASSWORD)).replace('\n', '')
+class MaintainHandler(webapp.RequestHandler):
+
+    def get(self):
+		return True
+
+
+		
+##############################################################################################################
+"""Get the friends of an user as specified"""
+def getfriends(uid, cursor):
+
+	#choose one account from the pool to avoid to reach the limit of weibo API
+    index = random.randint(0, len(APP_KEY)-1)
+    req = urllib2.Request('https://api.weibo.com/2/friendships/followers.json?source='+APP_KEY[index]+'&count=200'+"&uid="+str(uid)+"&cursor="+str(cursor))
+    sec = base64.encodestring('%s:%s' % (USERNAME[index], PASSWORD[index])).replace('\n', '')
     req.add_header('Authorization', 'Basic %s' % sec)
     try:
         return simplejson.load(urllib2.urlopen(req))
@@ -90,67 +142,75 @@ def GetFriends(uid, cursor):
         #print e.reason
         return None
 
+"""TODO Get the followers of an user as specified"""
+def getfollowers(uid, cursor):
 
-def GetFollowers(uid, cursor):
-    """TODO Get the followers of an user as specified"""
     return True
 
 
-def Chooseuid():
-    """Select one user from the DB to further retrieve his/her friends"""
-    uid = 1965240545    #set to a value for the first time exec
-    users = db.GqlQuery("SELECT * FROM Users WHERE visited = 0 ORDER BY followers_count DESC LIMIT 1")
-    if(users.count() > 0):
-        user = users.fetch(limit=1)
-        uid = user[0].id
-        user = Users(  key_name = str(uid)  )
-        user.visited = 1
-        user.put()
-    return uid
-
-
-
+"""Crawl the friends of users and store in Google Cloud SQL"""
 class MainHandler(webapp.RequestHandler):
+
     def get(self):
-        uid = Chooseuid()
-        cursor = 0
+
+        conn = rdbms.connect(instance=_INSTANCE_NAME, database=_DATABASE_NAME)
+        cursor = conn.cursor()
+		
+        #Select one user from the DB to further retrieve his/her friends
+        uid = 1965240545    #set to a value to bootstrap
+        cursor.execute('SELECT id FROM ' + _TABLE_NAME + ' WHERE visited = 0 ORDER BY followers_count DESC LIMIT 1')
+        for row in cursor.fetchall():
+            uid = int(row[0])
+
+        if uid != 1965240545:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE ' + _TABLE_NAME + ' SET visited = 1 WHERE id=' + str(uid))
+        #self.response.out.write('<blockquote>uid:%d</blockquote>' % uid)
+
+        weibo_cursor = 0
         cnt = 0;
-        
         while True:
-            res = GetFriends(uid, cursor)
+            res = getfriends(uid, weibo_cursor)
             if res == None:
                 break
             no_friends = len(res[u'users'])
-            self.response.out.write('<blockquote>no_friends:%d</blockquote>' % no_friends)
+            #self.response.out.write('<blockquote>no_friends:%d</blockquote>' % no_friends)
 
             for i in range(no_friends):
                 if cnt>WRITEPERVISIT:
                     break
-                user = Users(key_name = str(res[u'users'][i][u'id']) )                  #use the uid as primary key
-                user.id = res[u'users'][i][u'id']    
-                user.screen_name = res[u'users'][i][u'screen_name']
-                user.name = res[u'users'][i][u'name']
-                user.province = int(res[u'users'][i][u'province'])
-                user.city = int(res[u'users'][i][u'city'])
-                user.location = res[u'users'][i][u'location']
-                user.gender = res[u'users'][i][u'gender']
-                user.url = res[u'users'][i][u'url']
-                user.statuses_count = res[u'users'][i][u'statuses_count']
-                user.followers_count = res[u'users'][i][u'followers_count']
-                user.friends_count = res[u'users'][i][u'friends_count']
+                cursor = conn.cursor()
+                user_id = res[u'users'][i][u'id']    
+                user_screen_name = res[u'users'][i][u'screen_name']
+                user_name = res[u'users'][i][u'name']
+                user_province = int(res[u'users'][i][u'province'])
+                user_city = int(res[u'users'][i][u'city'])
+                user_location = res[u'users'][i][u'location']
+                user_gender = res[u'users'][i][u'gender']
+                user_url = res[u'users'][i][u'url']
+                user_statuses_count = res[u'users'][i][u'statuses_count']
+                user_followers_count = res[u'users'][i][u'followers_count']
+                user_friends_count = res[u'users'][i][u'friends_count']
                 tmp =  re.sub('[+-]\d\d\d\d',"",res[u'users'][i][u'created_at'])
-                user.created_at = datetime.strptime(tmp, "%a %b %d %H:%M:%S %Y" )       #Fri Aug 28 00:00:00 +0800 2009
-                user.visited = 0
-                user.put()
+                user_created_at = datetime.strptime(tmp, "%a %b %d %H:%M:%S %Y" )       #Fri Aug 28 00:00:00 +0800 2009
+                user_visited = 0
+                visited_at = datetime.now()
+				
+                print 'I got one'
+                # use 'INSERT IGNORE INTO' to ignore the error raised by duplicate entries 
+                cursor.execute('INSERT IGNORE INTO ' + _TABLE_NAME + ' (id, screen_name, name, province, city, location, gender, url, statuses_count, followers_count, friends_count, created_at, visited, visited_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)', (user_id, user_screen_name, user_name, user_province, user_city, user_location, user_gender, user_url, user_statuses_count, user_followers_count, user_friends_count, user_created_at, user_visited, visited_at))
+                conn.commit()
                 cnt += 1
 
-            self.response.out.write('<blockquote>next_cursor:%d</blockquote>' % res[u'next_cursor'])
+            #self.response.out.write('<blockquote>next_cursor:%d</blockquote>' % res[u'next_cursor'])
             if res[u'next_cursor'] == 0 or cnt>WRITEPERVISIT:
                 break
-            cursor = res[u'next_cursor']
+            weibo_cursor = res[u'next_cursor']
         self.response.out.write('<blockquote>users added:%d</blockquote>' % cnt)
+        conn.close()
+
     
-    
+##############################################################################################################
 class NotFoundHandler(webapp.RequestHandler):
   def get(self):    
     self.response.out.write("""
@@ -166,13 +226,14 @@ class NotFoundHandler(webapp.RequestHandler):
     """)
 
 
+##############################################################################################################
 def main():
     application = webapp.WSGIApplication([('/', MainHandler),
-										  ('/count', CountHandler),
-                                          ('/reset', ResetHandler),
+										  ('/status', StatusHandler),
+										  ('/api', APIStatusHandler),
                                           ('/randomuser', QueryHandler),
                                           ('/.*', NotFoundHandler)],
-                                         debug=False)
+                                         debug=True)
     util.run_wsgi_app(application)
 
 if __name__ == '__main__':

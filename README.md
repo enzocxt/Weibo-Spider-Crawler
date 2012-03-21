@@ -26,3 +26,16 @@ This project is released under GPL license
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Please free to contact me if you have any question.
+
+
+Release Notes:
+
+# v2	2012/3/21
+	1. The appstats (http://code.google.com/appengine/docs/python/tools/appstats.html) is enabled to give more monitoring of this GAE app.
+	2. Reset function is cancled as it is too dangerous
+	3. This app is swtiched to use Google Cloud SQL as the GAE Datastore is too limited.
+	4. A pool of username/password/appkey is used to avoid reaching, for a single acount, the weibo API limit.
+	5. Due to the above improvement, we can now reach a rate of capturing around 125 entires per minute per instance.
+	
+# v1	2012/3/20
+	proof-of-concept version
