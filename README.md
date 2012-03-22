@@ -9,7 +9,7 @@ A live demo of this project can be found here.
 
 However, due to the limited quota provided by GAE, it is not guaranteed that it will keep alive at any time for any one.
 
-# This project is released under GPL license
+This project is released under GPL license
 
     Copyright (C) 2012 Raullen Chai
 
