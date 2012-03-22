@@ -15,7 +15,7 @@ import random
 from settings import *
 
 #do not add too many records per visit of the page, 500 records consume ~30% quota of Datastore Write Operations on my GAE
-WRITEPERVISIT = 1000
+WRITEPERVISIT = 2000
 
 
 
@@ -64,19 +64,14 @@ class QueryHandler(webapp.RequestHandler):
     def get(self):
         conn = rdbms.connect(instance=_INSTANCE_NAME, database=_DATABASE_NAME)
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM ' + _TABLE_NAME)
-        cnt = 0
+        cursor.execute('SELECT * FROM '+_TABLE_NAME+' ORDER by RAND() LIMIT 20')
         self.response.out.write('<blockquote>')
         for row in cursor.fetchall():
-            if cnt>20:
-                break
-            if random.randint(0,1000) <= 1:  #one record has a certain prob. to be selected
-                self.response.out.write('@%s, ' % row[1])
-                cnt += 1
-
+			self.response.out.write('@%s, ' % row[1])
         self.response.out.write('</blockquote>')
-        self.response.out.write('<blockquote>%d users produced</blockquote>' % cnt)
         conn.close()
+
+		
 		
 		
 		
@@ -105,6 +100,14 @@ class StatusHandler(webapp.RequestHandler):
         for row in cursor.fetchall():
 			female_cnt = row
 			self.response.out.write('<blockquote>%d  users are female</blockquote>' % female_cnt)
+			
+        cursor = conn.cursor()
+        cursor.execute('SELECT count(*) FROM ' + _TABLE_NAME + ' WHERE gender="m"')
+        male_cnt = 0
+        for row in cursor.fetchall():
+			male_cnt = row
+			self.response.out.write('<blockquote>%d  users are male</blockquote>' % male_cnt)			
+			
         conn.close()
 
 		
