@@ -1,6 +1,7 @@
-A spider/crawler for weibo.com, which extracts/stores the users' records for further business intelligence analysis.
+# A Spider/Crawler For Weibo.com
 
-This program is to be deployed on GAE(Google App Engine) v1.6.
+This program is to be deployed to and run on GAE(Google App Engine) v1.6 and extracts/stores the users' records for further business intelligence analysis.
+
 
 A live demo of this project can be found here.
 
@@ -8,7 +9,7 @@ A live demo of this project can be found here.
 
 However, due to the limited quota provided by GAE, it is not guaranteed that it will keep alive at any time for any one.
 
-This project is released under GPL license
+# This project is released under GPL license
 
     Copyright (C) 2012 Raullen Chai
 
@@ -28,14 +29,14 @@ This project is released under GPL license
 Please free to contact me if you have any question.
 
 
-Release Notes:
+# Release Notes:
 
-# v2	2012/3/21
+v2	2012/3/21
 	1. The appstats (http://code.google.com/appengine/docs/python/tools/appstats.html) is enabled to give more monitoring of this GAE app.
 	2. Reset function is cancled as it is too dangerous
 	3. This app is swtiched to use Google Cloud SQL as the GAE Datastore is too limited.
 	4. A pool of username/password/appkey is used to avoid reaching, for a single acount, the weibo API limit.
 	5. Due to the above improvement, we can now reach a rate of capturing around 125 entires per minute per instance.
 	
-# v1	2012/3/20
+v1	2012/3/20
 	proof-of-concept version
